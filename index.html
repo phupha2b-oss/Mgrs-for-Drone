@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" type="image/png" href="icon-192.png">
+<meta name="theme-color" content="#141a17">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="MGRS">
+<title>แปลงพิกัด MGRS และมุม (องศา ⇄ มิล)</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Thai:wght@400;600&display=swap">
+<style>
+:root{--bg:#eef1ec;--card:#f9faf7;--ink:#1f2a24;--mute:#5d6b62;--line:#c9d1c6;--acc:#1d5c63;--err:#b3402a;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#141a17;--card:#1c2420;--ink:#e6ece7;--mute:#98a89e;--line:#34413a;--acc:#6fc3cb;--err:#ef8a74}}
+:root[data-theme="dark"]{--bg:#141a17;--card:#1c2420;--ink:#e6ece7;--mute:#98a89e;--line:#34413a;--acc:#6fc3cb;--err:#ef8a74}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.6 "IBM Plex Sans Thai",system-ui,sans-serif}
+main{max-width:640px;margin:0 auto;padding:20px 16px 40px}
+h1{font-size:1.4rem;margin:0 0 4px}
+h2{font-size:1.05rem;margin:0 0 12px}
+p.sub{color:var(--mute);margin:0 0 20px;font-size:.92rem}
+section{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:16px;margin-bottom:16px}
+.row{display:flex;gap:10px;flex-wrap:wrap}
+.row>label{flex:1 1 140px}
+label{display:block;font-size:.88rem;color:var(--mute);margin-bottom:10px}
+input,select{display:block;width:100%;margin-top:4px;padding:10px;font:inherit;font-family:"IBM Plex Mono",ui-monospace,monospace;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:6px}
+input:focus,select:focus{outline:2px solid var(--acc);outline-offset:1px}
+.out{font-family:"IBM Plex Mono",ui-monospace,monospace;font-weight:500;font-size:1.1rem;color:var(--acc);word-break:break-word;min-height:1.6em}
+.big{font-size:1.5rem}
+.err{color:var(--err);font-size:.9rem;min-height:1.4em}
+table{width:100%;border-collapse:collapse;font-size:.95rem}
+td{padding:6px 0;border-bottom:1px solid var(--line)}
+td:last-child{text-align:right;font-family:"IBM Plex Mono",ui-monospace,monospace;color:var(--acc)}
+tr:last-child td{border-bottom:0}
+.note{color:var(--mute);font-size:.82rem;margin:8px 0 0}
+hr{border:0;border-top:1px dashed var(--line);margin:14px 0}
+.btns{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0}
+button,a.btn{font:inherit;font-size:.9rem;padding:9px 12px;border-radius:6px;border:1px solid var(--acc);background:transparent;color:var(--acc);text-decoration:none;cursor:pointer}
+button:focus-visible,a.btn:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+a.btn[hidden]{display:none}
+textarea{width:100%;height:90px;margin-top:8px;font:.8rem "IBM Plex Mono",monospace;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:6px}
+#ptList td{font-size:.82rem;font-family:"IBM Plex Mono",monospace;color:var(--ink);text-align:left;word-break:break-word}
+</style>
+</head>
+<body>
+<main>
+<h1>แปลงพิกัด MGRS และมุม</h1>
+<p class="sub">Lat/Long ⇄ MGRS (WGS84) และ องศา ⇄ มิล</p>
+
+<section>
+<h2>Lat/Long → MGRS</h2>
+<label>วางพิกัดจาก Google Maps (เช่น 13.7563, 100.5018)<input id="paste" placeholder="13.7563, 100.5018" autocomplete="off"></label>
+<p class="note" style="margin:-4px 0 12px">ใน Google Maps แตะค้างที่จุดที่ต้องการ แล้วแตะตัวเลขพิกัดเพื่อคัดลอก</p>
+<div class="row">
+<label>ละติจูด (องศาทศนิยม, ใต้ = ลบ)<input id="lat" inputmode="decimal" value="13.7563"></label>
+<label>ลองจิจูด (ตะวันออก = บวก)<input id="lon" inputmode="decimal" value="100.5018"></label>
+</div>
+<label>ความละเอียด
+<select id="prec"><option value="5">1 เมตร (10 หลัก)</option><option value="4">10 เมตร (8 หลัก)</option><option value="3">100 เมตร (6 หลัก)</option><option value="2">1 กม. (4 หลัก)</option></select></label>
+<div class="out big" id="mgrsOut"></div>
+<div class="out" id="utmOut" style="font-size:.9rem;color:var(--mute)"></div>
+<div class="btns">
+<button type="button" id="gps">ใช้ตำแหน่งปัจจุบัน</button>
+<a class="btn" id="mapLink" href="#" target="_blank" rel="noopener" hidden>เปิดบน Google Maps</a>
+<a class="btn" id="osmLink" href="#" target="_blank" rel="noopener" hidden>เปิดบน OpenStreetMap</a>
+<button type="button" id="savePt">เก็บพิกัดนี้</button>
+</div>
+<div class="btns">
+<button type="button" id="cpMgrs">คัดลอก MGRS</button>
+<button type="button" id="shareBtn">แชร์…</button>
+<a class="btn" id="appleLink" href="#" target="_blank" rel="noopener" hidden>เปิดบน Apple Maps</a>
+</div>
+<div class="err" id="err1"></div>
+
+<hr>
+<h2>MGRS → Lat/Long</h2>
+<label>MGRS<input id="mgrs" value="47P PQ 79360 49836" autocapitalize="characters" autocomplete="off"></label>
+<div class="out" id="llOut"></div>
+<div class="btns"><a class="btn" id="mapLink2" href="#" target="_blank" rel="noopener" hidden>เปิดบน Google Maps</a>
+<a class="btn" id="osmLink2" href="#" target="_blank" rel="noopener" hidden>เปิดบน OpenStreetMap</a></div>
+<div class="err" id="err2"></div>
+<p class="note">ค่าที่ได้คือมุมตะวันตกเฉียงใต้ของช่องกริด (ยิ่งตัวเลขน้อยหลัก ช่องยิ่งใหญ่)</p>
+</section>
+
+<section>
+<h2>องศา → มิล</h2>
+<label>องศา<input id="deg" inputmode="decimal" value="45"></label>
+<table>
+<tr><td>NATO (6400 มิล/วงกลม)</td><td id="mNato"></td></tr>
+<tr><td>รัสเซีย (6000 มิล/วงกลม)</td><td id="mSov"></td></tr>
+<tr><td>มิลลิเรเดียนจริง (6283.19)</td><td id="mRad"></td></tr>
+</table>
+
+<hr>
+<h2>มิล → องศา</h2>
+<div class="row">
+<label>ค่ามิล<input id="mil" inputmode="decimal" value="800"></label>
+<label>ระบบ<select id="sys"><option value="6400">NATO 6400</option><option value="6000">รัสเซีย 6000</option><option value="6283.185307">มิลลิเรเดียน</option></select></label>
+</div>
+<div class="out big" id="degOut"></div>
+<p class="note">NATO 1 มิล ≈ 1 เมตร ที่ระยะ 1,000 เมตร</p>
+</section>
+
+<section>
+<h2>วัดมุมจากภาพเข็มทิศ (เช่น หน้าจอโดรน)</h2>
+<label>ถ่ายภาพหรือเลือกรูป (สกรีนช็อตแม่นที่สุด)<input id="pic" type="file" accept="image/*"></label>
+<div class="btns"><button type="button" id="camBtn">เปิดกล้องเรียลไทม์</button></div>
+<video id="vid" playsinline muted hidden></video>
+<label>ความไวสีของลูกศร (โหมดเรียลไทม์)<input id="tol" type="range" min="30" max="220" value="90"></label>
+<p class="note" id="hint" style="margin:0 0 8px">เลือกรูปก่อน แล้วแตะ 3 จุดตามลำดับ: (1) กลางเข็มทิศ (2) ตำแหน่งทิศเหนือ N บนเข็มทิศ (3) ปลายลูกศรที่ต้องการวัด</p>
+<canvas id="cv" hidden style="width:100%;border-radius:6px;touch-action:none"></canvas>
+<table>
+<tr><td>ทิศ (องศา)</td><td id="aDeg">-</td></tr>
+<tr><td>NATO (6400)</td><td id="aNato">-</td></tr>
+<tr><td>รัสเซีย (6000)</td><td id="aSov">-</td></tr>
+<tr><td>มิลลิเรเดียน</td><td id="aRad">-</td></tr>
+</table>
+<div class="btns"><button type="button" id="cvReset">แตะใหม่</button><button type="button" id="cvUse">ใช้ค่านี้ในตัวแปลงด้านบน</button></div>
+<p class="note">เป็นค่าประมาณ ความแม่นขึ้นกับการแตะและมุมถ่าย ควรถ่ายตรงหน้าจอหรือใช้สกรีนช็อต แตะค้างแล้วลากเพื่อขยับจุดก่อนปล่อยนิ้วเพื่อยืนยัน (หมุดจะอยู่เหนือนิ้วเล็กน้อยเพื่อไม่ให้นิ้วบัง) ทิศวัดตามเข็มนาฬิกาจากทิศเหนือที่คุณแตะ โหมดเรียลไทม์ตั้งว่าตำแหน่ง N ไม่ขยับ และติดตามลูกศรจากสีที่คุณแตะ ควรวางมือถือบนขาตั้งให้นิ่ง</p>
+</section>
+
+<section>
+<h2>พิกัดที่เก็บไว้ (ส่งต่อ Google Sheets)</h2>
+<table id="ptList"></table>
+<div class="btns">
+<button type="button" id="copyPts">คัดลอกสำหรับ Sheets</button>
+<a class="btn" href="https://docs.google.com/spreadsheets/create" target="_blank" rel="noopener">สร้าง Google Sheets ใหม่</a>
+<button type="button" id="dlCsv" hidden>ดาวน์โหลด CSV</button>
+<button type="button" id="kmlBtn">แชร์/ส่งออก KML</button>
+<button type="button" id="clearPts">ล้างรายการ</button>
+</div>
+<textarea id="tsv" hidden readonly aria-label="ข้อมูลสำหรับคัดลอก"></textarea>
+<p class="note">กดคัดลอก แล้ววางในช่อง A1 ของ Sheets ได้เลย (คอลัมน์: เวลา, Lat, Long, MGRS) รายการเก็บในเบราว์เซอร์นี้เท่านั้น</p>
+</section>
+</main>
+
+<script>
+const $=id=>document.getElementById(id),D=Math.PI/180;
+let cur=null;
+const a=6378137,f=1/298.257223563,k0=0.9996,n=f/(2-f),e=Math.sqrt(f*(2-f));
+const A=a/(1+n)*(1+n*n/4+n**4/64);
+const al=[n/2-2*n*n/3+5*n**3/16,13*n*n/48-3*n**3/5,61*n**3/240];
+const be=[n/2-2*n*n/3+37*n**3/96,n*n/48+n**3/15,17*n**3/480];
+const de=[2*n-2*n*n/3-2*n**3,7*n*n/3-8*n**3/5,56*n**3/15];
+const BANDS="CDEFGHJKLMNPQRSTUVWX",COLS=["ABCDEFGH","JKLMNPQR","STUVWXYZ"],ROWS="ABCDEFGHJKLMNPQRSTUV";
+
+function zoneFor(lat,lon){
+  let z=Math.min(60,Math.floor((lon+180)/6)+1);
+  if(lat>=56&&lat<64&&lon>=3&&lon<12)z=32;
+  if(lat>=72&&lat<84){if(lon>=0&&lon<9)z=31;else if(lon>=9&&lon<21)z=33;else if(lon>=21&&lon<33)z=35;else if(lon>=33&&lon<42)z=37;}
+  return z;
+}
+function toUTM(lat,lon,zone){
+  zone=zone||zoneFor(lat,lon);
+  const dl=lon*D-((zone-1)*6-177)*D,s=Math.sin(lat*D);
+  const t=Math.sinh(Math.atanh(s)-e*Math.atanh(e*s));
+  const xi0=Math.atan2(t,Math.cos(dl)),et0=Math.atanh(Math.sin(dl)/Math.sqrt(1+t*t));
+  let xi=xi0,et=et0;
+  for(let j=1;j<=3;j++){xi+=al[j-1]*Math.sin(2*j*xi0)*Math.cosh(2*j*et0);et+=al[j-1]*Math.cos(2*j*xi0)*Math.sinh(2*j*et0);}
+  return{zone,E:500000+k0*A*et,N:k0*A*xi+(lat<0?1e7:0)};
+}
+function fromUTM(zone,E,N,south){
+  const xi=(N-(south?1e7:0))/(k0*A),et=(E-500000)/(k0*A);
+  let x1=xi,e1=et;
+  for(let j=1;j<=3;j++){x1-=be[j-1]*Math.sin(2*j*xi)*Math.cosh(2*j*et);e1-=be[j-1]*Math.cos(2*j*xi)*Math.sinh(2*j*et);}
+  const chi=Math.asin(Math.sin(x1)/Math.cosh(e1));
+  let lat=chi;for(let j=1;j<=3;j++)lat+=de[j-1]*Math.sin(2*j*chi);
+  const lon=((zone-1)*6-177)*D+Math.atan2(Math.sinh(e1),Math.cos(x1));
+  return{lat:lat/D,lon:lon/D};
+}
+function toMGRS(lat,lon,p){
+  if(!(lat>=-80&&lat<=84))throw "ละติจูดต้องอยู่ระหว่าง -80 ถึง 84 (MGRS ไม่ครอบคลุมบริเวณขั้วโลก)";
+  if(!(lon>=-180&&lon<=180))throw "ลองจิจูดต้องอยู่ระหว่าง -180 ถึง 180";
+  const u=toUTM(lat,lon),band=BANDS[Math.min(19,Math.floor((lat+80)/8))];
+  const col=COLS[(u.zone-1)%3][Math.floor(u.E/1e5)-1],row=ROWS[(Math.floor(u.N/1e5)+(u.zone%2?0:5))%20];
+  const pad=v=>String(Math.floor(v)).padStart(5,"0").slice(0,p);
+  return{text:`${u.zone}${band} ${col}${row} ${pad(u.E%1e5)} ${pad(u.N%1e5)}`,u,band};
+}
+function fromMGRS(s){
+  const m=s.replace(/\s+/g,"").toUpperCase().match(/^(\d{1,2})([C-HJ-NP-X])([A-HJ-NP-Z])([A-HJ-NP-V])(\d*)$/);
+  if(!m||m[5].length%2||m[5].length>10)throw "รูปแบบไม่ถูกต้อง เช่น 47P PQ 79360 49836";
+  const zone=+m[1];if(zone<1||zone>60)throw "โซนต้องอยู่ระหว่าง 1 ถึง 60";
+  const ci=COLS[(zone-1)%3].indexOf(m[3]);if(ci<0)throw "อักษรคอลัมน์ไม่ตรงกับโซนนี้";
+  const h=m[5].length/2,sc=Math.pow(10,5-h);
+  const ee=h?parseInt(m[5].slice(0,h))*sc:0,nn=h?parseInt(m[5].slice(h))*sc:0;
+  const rowN=((ROWS.indexOf(m[4])-(zone%2?0:5)+20)%20)*1e5;
+  const bi=BANDS.indexOf(m[2]),cl=(zone-1)*6-177;
+  const nMin=toUTM(bi*8-80,cl,zone).N;
+  const N=rowN+2e6*(Math.floor((nMin-1e5-rowN)/2e6)+1)+nn,E=(ci+1)*1e5+ee;
+  return{...fromUTM(zone,E,N,bi<10),zone,E,N};
+}
+const num=(v,d)=>Number(v).toFixed(d);
+function calc1(){
+  $("err1").textContent="";$("mgrsOut").textContent="";$("utmOut").textContent="";cur=null;$("appleLink").hidden=true;$("mapLink").hidden=true;$("osmLink").hidden=true;
+  try{
+    const lat=parseFloat($("lat").value),lon=parseFloat($("lon").value);
+    if(isNaN(lat)||isNaN(lon))throw "กรอกละติจูดและลองจิจูดเป็นตัวเลข";
+    const r=toMGRS(lat,lon,+$("prec").value);
+    $("mgrsOut").textContent=r.text;
+    $("utmOut").textContent=`UTM ${r.u.zone}${r.band>="N"?"N":"S"}  E ${num(r.u.E,0)}  N ${num(r.u.N,0)}`;
+    cur={lat,lon,mgrs:r.text};$("mapLink").href=`https://www.google.com/maps?q=${lat},${lon}`;$("mapLink").hidden=false;$("appleLink").href=`https://maps.apple.com/?ll=${lat},${lon}&q=${encodeURIComponent(r.text)}`;$("appleLink").hidden=false;$("osmLink").href=`https://www.openstreetmap.org/?mlat=${lat}&mlon=${lon}#map=17/${lat}/${lon}`;$("osmLink").hidden=false;
+  }catch(x){$("err1").textContent=String(x);}
+}
+function calc2(){
+  $("err2").textContent="";$("llOut").textContent="";$("mapLink2").hidden=true;$("osmLink2").hidden=true;
+  if(!$("mgrs").value.trim())return;
+  try{const r=fromMGRS($("mgrs").value);$("llOut").textContent=`${num(r.lat,6)}, ${num(r.lon,6)}`;
+    $("mapLink2").href=`https://www.google.com/maps?q=${num(r.lat,6)},${num(r.lon,6)}`;$("mapLink2").hidden=false;$("osmLink2").href=`https://www.openstreetmap.org/?mlat=${num(r.lat,6)}&mlon=${num(r.lon,6)}#map=17/${num(r.lat,6)}/${num(r.lon,6)}`;$("osmLink2").hidden=false;}
+  catch(x){$("err2").textContent=String(x);}
+}
+function calc3(){
+  const d=parseFloat($("deg").value),ok=!isNaN(d);
+  $("mNato").textContent=ok?num(d*6400/360,2):"-";
+  $("mSov").textContent=ok?num(d*6000/360,2):"-";
+  $("mRad").textContent=ok?num(d*D*1000,2):"-";
+}
+function calc4(){
+  const m=parseFloat($("mil").value);
+  $("degOut").textContent=isNaN(m)?"":num(m*360/parseFloat($("sys").value),4)+"°";
+}
+["lat","lon","prec"].forEach(i=>$(i).addEventListener("input",calc1));
+$("mgrs").addEventListener("input",calc2);
+$("deg").addEventListener("input",calc3);
+["mil","sys"].forEach(i=>$(i).addEventListener("input",calc4));
+let pts=[];
+try{pts=JSON.parse(localStorage.getItem("pts")||"[]");}catch(_){}
+function savePts(){try{localStorage.setItem("pts",JSON.stringify(pts));}catch(_){}}
+function renderPts(){
+  $("ptList").innerHTML=pts.length?pts.map(p=>`<tr><td>${p.t}</td><td>${p.lat.toFixed(6)}, ${p.lon.toFixed(6)}</td><td>${p.mgrs}</td></tr>`).join(""):'<tr><td style="color:var(--mute)">ยังไม่มีพิกัดที่เก็บไว้</td></tr>';
+}
+$("gps").addEventListener("click",()=>{
+  $("err1").textContent="";
+  if(!navigator.geolocation){$("err1").textContent="เบราว์เซอร์นี้ไม่รองรับการอ่านตำแหน่ง";return;}
+  navigator.geolocation.getCurrentPosition(
+    p=>{$("lat").value=p.coords.latitude.toFixed(6);$("lon").value=p.coords.longitude.toFixed(6);calc1();},
+    ()=>{$("err1").textContent="อ่านตำแหน่งไม่ได้ ตรวจสอบว่าอนุญาตสิทธิ์ตำแหน่งให้เบราว์เซอร์แล้ว";},
+    {enableHighAccuracy:true,timeout:15000}
+  );
+});
+$("savePt").addEventListener("click",()=>{
+  if(!cur)return;
+  pts.push({t:new Date().toLocaleString("th-TH"),lat:cur.lat,lon:cur.lon,mgrs:cur.mgrs});
+  savePts();renderPts();
+});
+$("clearPts").addEventListener("click",()=>{pts=[];savePts();renderPts();$("tsv").hidden=true;});
+$("copyPts").addEventListener("click",async()=>{
+  if(!pts.length)return;
+  const tsv=pts.map(p=>[p.t,p.lat.toFixed(6),p.lon.toFixed(6),p.mgrs].join("\t")).join("\n");
+  try{await navigator.clipboard.writeText(tsv);$("copyPts").textContent="คัดลอกแล้ว";setTimeout(()=>{$("copyPts").textContent="คัดลอกสำหรับ Sheets";},1500);}
+  catch(_){$("tsv").value=tsv;$("tsv").hidden=false;$("tsv").select();}
+});
+renderPts();
+async function copyText(t,b){
+  const o=b.textContent;
+  try{await navigator.clipboard.writeText(t);}
+  catch(_){const x=document.createElement("textarea");x.value=t;document.body.appendChild(x);x.select();try{document.execCommand("copy");}catch(_){}x.remove();}
+  b.textContent="คัดลอกแล้ว";setTimeout(()=>{b.textContent=o;},1500);
+}
+$("cpMgrs").addEventListener("click",()=>{if(cur)copyText(cur.mgrs,$("cpMgrs"));});
+$("shareBtn").addEventListener("click",async()=>{
+  if(!cur)return;
+  const t=`${cur.mgrs}\n${cur.lat.toFixed(6)}, ${cur.lon.toFixed(6)}`;
+  try{await navigator.share({text:t});}
+  catch(e){if(!e||e.name!=="AbortError")copyText(t,$("shareBtn"));}
+});
+$("kmlBtn").addEventListener("click",async()=>{
+  if(!pts.length)return;
+  const esc=t=>String(t).replace(/&/g,"&amp;").replace(/</g,"&lt;");
+  const kml='<?xml version="1.0" encoding="UTF-8"?>\n<kml xmlns="http://www.opengis.net/kml/2.2"><Document>\n'+pts.map(p=>`<Placemark><name>${esc(p.mgrs)}</name><description>${esc(p.t)}</description><Point><coordinates>${p.lon.toFixed(6)},${p.lat.toFixed(6)},0</coordinates></Point></Placemark>`).join("\n")+'\n</Document></kml>';
+  const file=new File([kml],"points.kml",{type:"application/vnd.google-earth.kml+xml"});
+  try{
+    if(navigator.canShare&&navigator.canShare({files:[file]})){await navigator.share({files:[file]});return;}
+  }catch(e){if(e&&e.name==="AbortError")return;}
+  const a=document.createElement("a");a.href=URL.createObjectURL(file);a.download="points.kml";document.body.appendChild(a);a.click();a.remove();
+});
+(async()=>{
+  try{
+    let dl;
+    if(typeof claude==="undefined"){dl={save:({filename,data})=>{const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([data],{type:"text/csv"}));a.download=filename;document.body.appendChild(a);a.click();a.remove();return Promise.resolve();}};}
+    else{dl=await claude.use("downloads");if(!dl)return;}
+    $("dlCsv").hidden=false;
+    $("dlCsv").addEventListener("click",()=>{
+      if(!pts.length)return;
+      const csv="\ufeffเวลา,Lat,Long,MGRS\n"+pts.map(p=>[`"${p.t}"`,p.lat.toFixed(6),p.lon.toFixed(6),`"${p.mgrs}"`].join(",")).join("\n");
+      dl.save({filename:"points.csv",data:csv}).catch(()=>{});
+    });
+  }catch(_){}
+})();
+const cv=$("cv"),cx=cv.getContext("2d");let img=null,pt=[],brg=null,drag=false;
+function drawCv(){
+  if(!img)return;
+  const W=Math.max(300,cv.parentElement.clientWidth-32);cv.hidden=false;cv.width=W;cv.height=Math.round(img.height*W/img.width);
+  cx.drawImage(img,0,0,cv.width,cv.height);
+  const cols=["#ffd400","#ff3b30","#34c759"],lbl=["กลาง","N","ลูกศร"];
+  cx.lineWidth=2;
+  [1,2].forEach(i=>{if(pt[i]){cx.strokeStyle=cols[i];cx.beginPath();cx.moveTo(pt[0].x,pt[0].y);cx.lineTo(pt[i].x,pt[i].y);cx.stroke();}});
+  pt.forEach((p,i)=>{cx.fillStyle=cols[i];cx.beginPath();cx.arc(p.x,p.y,6,0,7);cx.fill();cx.font="bold 16px sans-serif";cx.fillText(lbl[i],p.x+9,p.y-9);});
+  cross();
+  brg=null;
+  if(pt.length===3){
+    const a1=Math.atan2(pt[1].y-pt[0].y,pt[1].x-pt[0].x),a2=Math.atan2(pt[2].y-pt[0].y,pt[2].x-pt[0].x);
+    brg=((a2-a1)/D+360)%360;
+  }
+  $("aDeg").textContent=brg===null?"-":num(brg,1)+"°";
+  $("aNato").textContent=brg===null?"-":num(brg*6400/360,0);
+  $("aSov").textContent=brg===null?"-":num(brg*6000/360,0);
+  $("aRad").textContent=brg===null?"-":num(brg*D*1000,0);
+  $("hint").textContent=pt.length<3?["แตะกลางเข็มทิศ","แตะตำแหน่งทิศเหนือ (N)","แตะปลายลูกศรที่ต้องการวัด"][pt.length]:"ได้ค่าแล้ว ถ้าไม่ตรงกด แตะใหม่";
+}
+$("pic").addEventListener("change",e=>{
+  const f=e.target.files[0];if(!f)return;stopLive();
+  const r=new FileReader();
+  r.onload=()=>{const i=new Image();i.onload=()=>{img=i;pt=[];drawCv();};i.src=r.result;};
+  r.readAsDataURL(f);
+});
+function cvPos(e){
+  const r=cv.getBoundingClientRect(),off=e.pointerType==="touch"?56:0;
+  return{x:(e.clientX-r.left)*cv.width/r.width,y:(e.clientY-off-r.top)*cv.height/r.height};
+}
+function cross(){
+  if(!drag||!pt.length)return;
+  const p=pt[pt.length-1];cx.strokeStyle="#fff";cx.lineWidth=1;cx.beginPath();
+  cx.moveTo(p.x-22,p.y);cx.lineTo(p.x+22,p.y);cx.moveTo(p.x,p.y-22);cx.lineTo(p.x,p.y+22);cx.stroke();
+}
+cv.addEventListener("pointerdown",e=>{
+  if((!img&&!live)||pt.length>=3)return;
+  e.preventDefault();cv.setPointerCapture(e.pointerId);drag=true;pt.push(cvPos(e));
+  if(!live)drawCv();
+});
+cv.addEventListener("pointermove",e=>{
+  if(!drag)return;
+  pt[pt.length-1]=cvPos(e);
+  if(!live)drawCv();
+});
+function endDrag(cancel){
+  if(!drag)return;
+  drag=false;
+  if(cancel)pt.pop();
+  else if(live&&pt.length===3)needSample=true;
+  if(!live)drawCv();
+}
+cv.addEventListener("pointerup",()=>endDrag(false));
+cv.addEventListener("pointercancel",()=>endDrag(true));
+$("cvReset").addEventListener("click",()=>{pt=[];tcol=null;ema=null;if(!live)drawCv();});
+$("cvUse").addEventListener("click",()=>{if(brg===null)return;$("deg").value=num(brg,2);calc3();});
+let live=false,stream=null,tcol=null,ema=null,needSample=false,fr=0;
+function setRes(b){
+  $("aDeg").textContent=b===null?"-":num(b,1)+"°";
+  $("aNato").textContent=b===null?"-":num(b*6400/360,0);
+  $("aSov").textContent=b===null?"-":num(b*6000/360,0);
+  $("aRad").textContent=b===null?"-":num(b*D*1000,0);
+}
+function stopLive(){
+  live=false;if(stream){stream.getTracks().forEach(t=>t.stop());stream=null;}
+  $("camBtn").textContent="เปิดกล้องเรียลไทม์";
+}
+function liveLoop(){
+  if(!live)return;
+  const v=$("vid");
+  if(v.videoWidth){
+    cv.hidden=false;cv.width=640;cv.height=Math.round(v.videoHeight*640/v.videoWidth);
+    cx.drawImage(v,0,0,cv.width,cv.height);
+    if(needSample&&pt.length===3){
+      const d=cx.getImageData(Math.max(0,pt[2].x-2),Math.max(0,pt[2].y-2),5,5).data;let r=0,g=0,b=0;
+      for(let i=0;i<100;i+=4){r+=d[i];g+=d[i+1];b+=d[i+2];}
+      tcol=[r/25,g/25,b/25];needSample=false;
+    }
+    let tip=null;
+    if(tcol&&pt.length===3&&(fr++%2===0||ema===null)){
+      const W=cv.width,H=cv.height,im=cx.getImageData(0,0,W,H).data;
+      const x0=pt[0].x,y0=pt[0].y,R=Math.hypot(pt[1].x-x0,pt[1].y-y0),tol=+$("tol").value;
+      let sx=0,sy=0,n=0;
+      for(let y=0;y<H;y+=2)for(let x=0;x<W;x+=2){
+        const dx=x-x0,dy=y-y0,d2=dx*dx+dy*dy;
+        if(d2>R*R*1.1||d2<R*R*0.015)continue;
+        const i=(y*W+x)*4;
+        if(Math.abs(im[i]-tcol[0])+Math.abs(im[i+1]-tcol[1])+Math.abs(im[i+2]-tcol[2])<tol){const d=Math.sqrt(d2);sx+=dx*d;sy+=dy*d;n++;}
+      }
+      if(n>=15){
+        const a1=Math.atan2(pt[1].y-y0,pt[1].x-x0),aT=Math.atan2(sy,sx),b=((aT-a1)/D+360)%360;
+        const ux=Math.cos(b*D),uy=Math.sin(b*D);
+        ema=ema?{x:ema.x*0.7+ux*0.3,y:ema.y*0.7+uy*0.3}:{x:ux,y:uy};
+        brg=(Math.atan2(ema.y,ema.x)/D+360)%360;setRes(brg);
+        $("hint").textContent="กำลังติดตามลูกศร ถือมือถือให้นิ่ง (พบ "+n+" จุด)";
+        tip={x:x0+Math.cos(aT)*R,y:y0+Math.sin(aT)*R};
+      }else{brg=null;setRes(null);$("hint").textContent="ไม่พบลูกศรสีที่เลือก ลองปรับความไวสีหรือแสง";}
+    }else if(pt.length<3){$("hint").textContent=["แตะกลางเข็มทิศ","แตะตำแหน่งทิศเหนือ (N)","แตะที่ตัวลูกศร เพื่อให้โปรแกรมจำสี"][pt.length];}
+    cx.lineWidth=2;
+    if(pt[1]){cx.strokeStyle="#ff3b30";cx.beginPath();cx.moveTo(pt[0].x,pt[0].y);cx.lineTo(pt[1].x,pt[1].y);cx.stroke();}
+    if(tip){cx.strokeStyle="#34c759";cx.beginPath();cx.moveTo(pt[0].x,pt[0].y);cx.lineTo(tip.x,tip.y);cx.stroke();}
+    const cols=["#ffd400","#ff3b30","#34c759"];
+    pt.forEach((p,i)=>{cx.fillStyle=cols[i];cx.beginPath();cx.arc(p.x,p.y,6,0,7);cx.fill();});
+    cross();
+    if(brg!==null){cx.font="bold 28px sans-serif";cx.fillStyle="#fff";cx.strokeStyle="#000";cx.lineWidth=4;const t=num(brg,1)+"°  "+num(brg*6400/360,0)+" มิล";cx.strokeText(t,12,36);cx.fillText(t,12,36);}
+  }
+  requestAnimationFrame(liveLoop);
+}
+$("camBtn").addEventListener("click",async()=>{
+  if(live){stopLive();return;}
+  if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){$("hint").textContent="เบราว์เซอร์นี้เปิดกล้องไม่ได้";return;}
+  try{
+    stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:"environment",width:{ideal:1280}},audio:false});
+    const v=$("vid");v.srcObject=stream;await v.play();
+    img=null;pt=[];tcol=null;ema=null;brg=null;setRes(null);fr=0;live=true;
+    $("camBtn").textContent="ปิดกล้อง";liveLoop();
+  }catch(_){$("hint").textContent="เปิดกล้องไม่ได้ ตรวจสิทธิ์กล้อง หรือหน้านี้อาจไม่อนุญาตให้ใช้กล้อง";}
+});
+$("paste").addEventListener("input",()=>{
+  const m=$("paste").value.match(/(-?\d+(?:\.\d+)?)\s*[,\s]\s*(-?\d+(?:\.\d+)?)/);
+  if(!m)return;$("lat").value=m[1];$("lon").value=m[2];calc1();
+  if(typeof showPin==="function")showPin(true);
+});
+calc1();calc2();calc3();calc4();
+if("serviceWorker"in navigator)navigator.serviceWorker.register("sw.js").catch(()=>{});
+</script>
+</body>
+</html>
